@@ -3,9 +3,16 @@ name = "advent_code_2016"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+debug = true
+
 [[bin]]
 name = "day_1"
 path = "src/day_1/main.rs"
+
+[[bin]]
+name = "day_2"
+path = "src/day_2/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
