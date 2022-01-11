@@ -13,7 +13,7 @@ fn get_valid_triangles(input: &str) -> u64 {
 
     for line in input.lines() {
         let mut sorted_vals = line.split_whitespace().map(|s| s.parse::<u64>().unwrap()).collect::<Vec<u64>>();
-        sorted_vals.sort();
+        sorted_vals.sort_unstable();
 
         if sorted_vals[0] + sorted_vals[1] > sorted_vals[2] { count += 1 }
     }
@@ -29,7 +29,7 @@ fn get_valid_triangles_vert(input: &str) -> u64 {
             .map(|l| l.split_whitespace().map(|s| s.parse::<u64>().unwrap()))
             .tuples() {
         
-        for vals in multizip((line1, line2, line3)).map(|(x,y,z)| { let mut v = vec![x,y,z]; v.sort(); v }) {
+        for vals in multizip((line1, line2, line3)).map(|(x,y,z)| { let mut v = vec![x,y,z]; v.sort_unstable(); v }) {
             if vals[0] + vals[1] > vals[2] { count += 1 }
         }
     }

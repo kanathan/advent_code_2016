@@ -16,12 +16,10 @@ fn get_tls_count(input: &str) -> u64 {
     for line in input.lines() {
         let mut unbracketed = Vec::new();
         let mut bracketed = Vec::new();
-        for capture in re_line.captures_iter(line) {
-            if let Ok(capture) = capture {
-                unbracketed.push(capture.get(1).unwrap().as_str());
-                if let Some(item) = capture.get(2) {
-                    bracketed.push(item.as_str());
-                }
+        for capture in re_line.captures_iter(line).flatten() {
+            unbracketed.push(capture.get(1).unwrap().as_str());
+            if let Some(item) = capture.get(2) {
+                bracketed.push(item.as_str());
             }
         }
         if unbracketed.into_iter().any(|s| re_pattern.is_match(s).unwrap())
@@ -43,12 +41,10 @@ fn get_ssl_count(input: &str) -> u64 {
     'line_loop: for line in input.lines() {
         let mut unbracketed = Vec::new();
         let mut bracketed = Vec::new();
-        for capture in re_line.captures_iter(line) {
-            if let Ok(capture) = capture {
-                unbracketed.push(capture.get(1).unwrap().as_str());
-                if let Some(item) = capture.get(2) {
-                    bracketed.push(item.as_str());
-                }
+        for capture in re_line.captures_iter(line).flatten() {
+            unbracketed.push(capture.get(1).unwrap().as_str());
+            if let Some(item) = capture.get(2) {
+                bracketed.push(item.as_str());
             }
         }
         for ubs in unbracketed {
@@ -98,7 +94,7 @@ mod test {
 
     #[test]
     fn test1() {
-        //dbg!(get_tls_count(INPUT));
+        dbg!(get_tls_count(INPUT));
         dbg!(get_ssl_count(INPUT2));
     }
 

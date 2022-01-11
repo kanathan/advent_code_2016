@@ -24,7 +24,7 @@ fn parse(input: &str) -> Vec<(String, u64, String)> {
     output
 }
 
-fn get_valid_id_sum(items: &Vec<(String, u64, String)>) -> u64 {
+fn get_valid_id_sum(items: &[(String, u64, String)]) -> u64 {
     let mut sum = 0;
 
     for (name, id, cksum) in items.iter() {
@@ -40,7 +40,7 @@ fn get_valid_id_sum(items: &Vec<(String, u64, String)>) -> u64 {
 
         if sorted_chars.zip(cksum.chars()).all(|(a, b)| a.0 == b) {
             sum += id;
-            println!("{}: {}", id, decrypt_name(&name, *id));
+            println!("{}: {}", id, decrypt_name(name, *id));
         }
     }
     sum

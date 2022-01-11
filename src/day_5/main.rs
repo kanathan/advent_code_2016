@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 use std::time;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -78,7 +79,7 @@ fn get_password(id: &str, length: usize) -> String {
         .sorted_by(|a, b| a.0.cmp(&b.0))
         .collect_vec();
 
-    sorted_return_vals[0..length].into_iter()
+    sorted_return_vals[0..length].iter()
         .map(|(_, hash)| hash.chars().nth(5).unwrap())
         .collect()
 }
