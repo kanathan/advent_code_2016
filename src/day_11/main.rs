@@ -32,6 +32,7 @@ lazy_static!{
 
 fn get_fewest_moves(init_state: &State) -> u16 {
     let cur_time = time::Instant::now();
+    let mut print_counter = 0;
     let mut cur_update_time = time::Instant::now();
     let mut frontier = BinaryHeap::new();
     frontier.push(ScoredState{ state: init_state.clone(), cost: 0 });
@@ -50,19 +51,42 @@ fn get_fewest_moves(init_state: &State) -> u16 {
             return cur_cost
         }
 
+        if print_counter < 50 {
+            println!("{} secs: Currently at cost {}+{}={} with {} permutations",
+                cur_time.elapsed().as_secs(),
+                cur_cost,
+                current_state.get_h_score(),
+                cur_cost + current_state.get_h_score(),
+                frontier.len());
+            print_counter += 1;
+        }
         if cur_update_time.elapsed().as_secs() > 5 {
             cur_update_time = time::Instant::now();
-            println!("{} secs: Currently at cost {} with {} permutations",cur_time.elapsed().as_secs(),cur_cost,frontier.len());
+            println!("{} secs: Currently at cost {}+{}={} with {} permutations",
+                cur_time.elapsed().as_secs(),
+                cur_cost,
+                current_state.get_h_score(),
+                cur_cost + current_state.get_h_score(),
+                frontier.len());
         }
 
         let new_cost = cur_cost + 1;
-        for (neighbor_state, adtl_cost) in current_state.get_valid_moves().iter() {
+        for (neighbor_state, _) in current_state.get_valid_moves().iter() {
             if !cost_so_far.contains_key(neighbor_state) || new_cost < cost_so_far[neighbor_state] {
                 cost_so_far.insert(neighbor_state.clone(), new_cost);
-                frontier.push(ScoredState{ state: neighbor_state.clone(), cost: new_cost + *adtl_cost });
+                frontier.push(ScoredState{ state: neighbor_state.clone(), cost: new_cost + neighbor_state.get_h_score() });
                 came_from.insert(neighbor_state.clone(), current_state.clone());
             }
         }
+        
+        // Need to prune
+        let mut best_score_map: HashMap<State,u16> = HashMap::new();
+        for ScoredState { state, cost } in frontier.iter() {
+            if !best_score_map.contains_key(state) || best_score_map[state] > *cost {
+                best_score_map.insert(state.clone(), *cost);
+            }
+        }
+        frontier = frontier.into_iter().filter(|ss| best_score_map[&ss.state] - 10 <= ss.cost).collect();
     }
 
     0
@@ -173,6 +197,19 @@ impl State {
         }
         set_vals.sort_unstable();
         set_vals
+    }
+
+    fn get_h_score(&self) -> u16 {
+        let mut score = 0;
+        let mut prev_items = 0;
+        for floor in self.floors[0..(self.floors.len()-1)].iter() {
+            let cur_items = floor.items.len() + prev_items;
+            prev_items = cur_items;
+            if cur_items == 0 { continue }
+            if cur_items < 3 { score += 1 }
+            else { score += cur_items * 2 - 3 }
+        }
+        score as u16
     }
 }
 
