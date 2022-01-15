@@ -1,5 +1,7 @@
 use std::time;
 use std::collections::VecDeque;
+use std::sync::{Arc, Mutex, mpsc};
+use std::thread;
 use lazy_static::lazy_static;
 use fancy_regex::Regex;
 
@@ -26,68 +28,119 @@ fn get_pad_idx(nth: usize, salt: &'static str, hash_stretch: bool) -> usize {
     pads.into_iter().last().unwrap()
 }
 
+type HashGen = (Arc<Mutex<VecDeque<HashInfo>>>, mpsc::Receiver<()>);
 
 struct Hasher {
     salt: &'static str,
     queue: VecDeque<HashInfo>,
     cur_idx: usize,
     hash_stretch: bool,
+    hash_gen: Option<HashGen>,
 }
 
 impl Hasher {
     fn new(salt: &'static str, hash_stretch: bool) -> Self {
         let queue = VecDeque::new();
+        let hash_gen = generate_hashes(salt, 0, 2000, hash_stretch);
+
         Self {
             salt,
             queue,
-            cur_idx: 0,
-            hash_stretch
+            cur_idx: 2000,
+            hash_stretch,
+            hash_gen: Some(hash_gen),
         }
     }
 
-    fn next_hash(&mut self) {
-        let hash = self.get_hash();
-        let triple = get_triple(&hash);
-        let fives = get_fives(&hash);
-
-        self.queue.push_back(HashInfo {
-            index: self.cur_idx,
-            triple,
-            fives,
-        });
-
-        self.cur_idx += 1;
-    }
-
-
-    fn get_hash(&self) -> String {
-        if self.hash_stretch {
-            let mut temp_hash = format!("{:?}",md5::compute(format!("{}{}",self.salt,self.cur_idx)));
-            for _ in 0..2016 {
-                temp_hash = format!("{:?}",md5::compute(temp_hash));
+    fn wait_until_hashes_available(&mut self, count: usize) {
+        loop {
+            // Make sure generator is running at least 1000 hashes, even if we already have enough
+            if self.hash_gen.is_none() {
+                
+                self.hash_gen = Some(generate_hashes(self.salt, self.cur_idx, count.max(1000), self.hash_stretch));
+                self.cur_idx += count.max(1000);
             }
-            temp_hash
-        } else {
-            format!("{:?}",md5::compute(format!("{}{}",self.salt,self.cur_idx)))
+
+            if self.queue.len() >= count {
+                return
+            }
+
+            {   
+                let mut new_queue = self.hash_gen.as_mut().unwrap().0.lock().unwrap();
+                self.queue.append(&mut new_queue);
+            }
+            if self.hash_gen.as_ref().unwrap().1.try_recv().is_ok() {
+                self.hash_gen = None;
+            };
         }
     }
 
     fn next(&mut self) -> HashInfo {
-        if self.queue.is_empty() {
-            self.next_hash();
-        }
+        self.wait_until_hashes_available(1);
         self.queue.pop_front().unwrap()
     }
 
     fn get_fives(&mut self, c: char) -> Option<usize> {
-        while self.queue.len() < 1000 {
-            self.next_hash();
-        }
+        self.wait_until_hashes_available(1000);
         for info in self.queue.iter().take(1000) {
             if info.fives.contains(&c) { return Some(info.index) }
         }
         None
     }
+}
+
+
+fn generate_hashes(salt: &'static str, start_idx: usize, count: usize, hash_stretch: bool) -> HashGen {
+    let output = Arc::new(Mutex::new(VecDeque::new()));
+    let output_returned = output.clone();
+    let (tx,rx) = mpsc::channel();
+    thread::spawn(move || {
+        let thread_count = 6;
+        let mut handles = Vec::new();
+
+        for idx in (start_idx..(count+start_idx)).step_by(count/thread_count + 1) {
+            let start = idx;
+            let stop = (idx+(count/thread_count + 1)).min(start_idx+count);
+            
+            handles.push(thread::spawn(move || {
+                let mut hashes = VecDeque::new();
+
+                for idx in start..stop {
+                    let hash =
+                    if hash_stretch {
+                        let mut temp_hash = format!("{:?}",md5::compute(format!("{}{}",salt,idx)));
+                        for _ in 0..2016 {
+                            temp_hash = format!("{:?}",md5::compute(temp_hash));
+                        }
+                        temp_hash
+                    } else {
+                        format!("{:?}",md5::compute(format!("{}{}",salt,idx)))
+                    };
+                    let triple = get_triple(&hash);
+                    let fives = get_fives(&hash);
+                    hashes.push_back(HashInfo {
+                        index: idx,
+                        triple,
+                        fives,
+                    });
+                }
+
+                hashes
+            }));
+
+        }
+
+        for handle in handles {
+            let mut hashes = handle.join().unwrap();
+            {
+                output.lock().unwrap().append(&mut hashes);
+            }
+        }
+
+        tx.send(()).expect("Error sending message");
+    });
+
+    (output_returned, rx)
 }
 
 
@@ -137,12 +190,6 @@ mod test {
 
     #[test]
     fn test2() {
-        let hasher = Hasher::new("abc", true);
-        assert_eq!(hasher.get_hash(),"a107ff634856bb300138cac6568c0f24");
-    }
-
-    #[test]
-    fn test3() {
         assert_eq!(get_pad_idx(1, "abc", true), 10);
         assert_eq!(get_pad_idx(64, "abc", true), 22551);
     }
