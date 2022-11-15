@@ -12,7 +12,7 @@ fn p1(instrs_str: &str, input: &str) -> String {
     let instrs = parse(instrs_str);
     let mut text: Vec<char> = input.chars().collect();
     for instr in instrs {
-        performInstruction(&mut text, instr);
+        perform_instruction(&mut text, instr);
     }
     text.into_iter().collect::<String>()
 }
@@ -21,7 +21,7 @@ fn p2(instrs_str: &str, input: &str) -> String {
     let instrs = rev_parse(instrs_str);
     let mut text: Vec<char> = input.chars().collect();
     for instr in instrs {
-        performInstruction(&mut text, instr);
+        perform_instruction(&mut text, instr);
     }
     text.into_iter().collect::<String>()
 }
@@ -91,7 +91,7 @@ fn rev_rotate(input: &mut Vec<char>, letter: char) {
 }
 
 
-fn performInstruction(input: &mut Vec<char>, instr: Instruction) {
+fn perform_instruction(input: &mut Vec<char>, instr: Instruction) {
     match instr {
         Instruction::SwapPos(x, y) => {
             input.swap(x, y);

@@ -72,7 +72,7 @@ fn p2(input: &str) -> u32 {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    //use super::*;
 
     #[test]
     fn test1() {
